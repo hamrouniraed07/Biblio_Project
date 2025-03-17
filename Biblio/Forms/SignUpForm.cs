@@ -1,85 +1,86 @@
+using Biblio.Data;
+using Biblio.Models;
+using Microsoft.EntityFrameworkCore;
 using System;
+using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 using System.Windows.Forms;
-using System.Text.RegularExpressions;
-using BCrypt.Net;
-using Microsoft.VisualBasic.ApplicationServices;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement;
-using Biblio.Biblio.Data;
-using Biblio.Biblio.Models;
-using global::Biblio.Data;
 
 namespace Biblio
 {
-    namespace Biblio
+    public partial class SignUpForm : Form
     {
-        public partial class SignUpForm : Form
+        private readonly AppDbContext _dbContext;
+
+        public SignUpForm()
         {
-            public SignUpForm()
-            {
-                InitializeComponent();
-            }
-
-            private void buttonSignUp_Click(object sender, EventArgs e)
-            {
-                string nom = textnom.Text.Trim();
-                string email = textEmail.Text.Trim();
-                string password = textPasswd.Text;
-                string emailPattern = @"^[^@\s]+@[^@\s]+\.[^@\s]+$";
-                string confirmPassword = textConfirm.Text;
-
-                if (string.IsNullOrEmpty(nom) || string.IsNullOrEmpty(email) || string.IsNullOrEmpty(password))
-                {
-                    MessageBox.Show("Veuillez remplir tous les champs !", "Erreur", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
-                }
-
-                if (!Regex.IsMatch(email, emailPattern))
-                {
-                    MessageBox.Show("Email invalide !", "Erreur", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
-                }
-
-                if (password.Length < 6)
-                {
-                    MessageBox.Show("Le mot de passe doit contenir au moins 6 caractères !", "Erreur", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
-                }
-
-                if (password != confirmPassword)
-                {
-                    MessageBox.Show("Les mots de passe ne correspondent pas !", "Erreur", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
-                }
-
-                string hashedPassword = BCrypt.Net.BCrypt.HashPassword(password);
-
-                using (var context = new AppDbContext())
-                {
-                    if (context.Users.Any(u => u.Email == email))
-                    {
-                        MessageBox.Show("Cet email est déjà utilisé !", "Erreur", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                        return;
-                    }
-
-                    Models.User newUser = new Models.User { Nom = nom, Email = email, PasswordHash = hashedPassword };
-                    context.Users.Add(newUser);
-                    context.SaveChanges();
-                }
-
-                MessageBox.Show("Inscription réussie !", "Succès", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                this.Close();
-            }
-            private void label1_Click(object sender, EventArgs e)
-            {
-                // Laisse vide ou ajoute un MessageBox si nécessaire
-            }
-            private void Email_Click(object sender, EventArgs e)
-            {
-                // Code ici si nécessaire, sinon laisse vide.
-            }
-
-
+            InitializeComponent();
+            _dbContext = new AppDbContext();
         }
-    }
 
+        private void buttonSignup_Click(object sender, EventArgs e)
+        {
+            // Validation
+            if (string.IsNullOrWhiteSpace(textnom.Text) || string.IsNullOrWhiteSpace(textEmail.Text) || 
+                string.IsNullOrWhiteSpace(textPasswd.Text) || string.IsNullOrWhiteSpace(textConfirm.Text))
+            {
+                MessageBox.Show("Please fill in all fields.");
+                return;
+            }
+
+            if (textPasswd.Text != textConfirm.Text)
+            {
+                MessageBox.Show("Passwords do not match.");
+                return;
+            }
+
+            if (!_dbContext.Users.Any(u => u.Email == textEmail.Text))
+            {
+                // Hash the password
+                var hashedPassword = HashPassword(textPasswd.Text);
+
+                // Create a new user
+                var user = new User
+                {
+                    Nom = textnom.Text,
+                    Email = textEmail.Text,
+                    PasswordHash = hashedPassword
+                };
+
+                // Save user to database
+                _dbContext.Users.Add(user);
+                _dbContext.SaveChanges();
+
+                MessageBox.Show("User registered successfully!");
+                this.Close(); // Optionally close the form after successful registration
+            }
+            else
+            {
+                MessageBox.Show("This email is already registered.");
+            }
+        }
+
+        private string HashPassword(string password)
+        {
+            using (var sha256 = SHA256.Create())
+            {
+                var passwordBytes = Encoding.UTF8.GetBytes(password);
+                var hashedBytes = sha256.ComputeHash(passwordBytes);
+                return Convert.ToBase64String(hashedBytes);
+            }
+        }
+
+        // Event Handlers for TextChanged events (optional, for additional validation if necessary)
+        private void textnom_TextChanged(object sender, EventArgs e) { }
+
+        private void textEmail_TextChanged(object sender, EventArgs e) { }
+
+        private void textPasswd_TextChanged(object sender, EventArgs e) { }
+
+        private void textConfirm_TextChanged(object sender, EventArgs e) { }
+
+        // Form Load event
+        private void Form1_Load(object sender, EventArgs e) { }
+    }
 }
